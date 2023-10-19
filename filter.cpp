@@ -80,28 +80,21 @@ int main()
     saveMod();
     while (1)
     {
-        int sz = (mods.size() == 1 ? ls.size() : ls.size() + 1);
+        int sz = (mods.size() == 1 ? 17 : 18);
         cout << "--------------------------------\n";
-        for (ll i{}; i < sz - 1; i++) cout << i + 1 << "-" << ls[i] << endl;
-        cout << sz << "-" "Turn Autosave " << (autoSave ? "Off" : "On") << endl;
+        for (ll i{}; i < sz - 1; i++) 
+        {
+            if (i + 1 > 9) cout << static_cast<char>(i + 1 + 87);
+            else cout << i + 1;
+            cout << "-" << ls[i] << endl;
+        }
+        cout << static_cast<char>(sz + 87) << "-" "Turn Autosave " << (autoSave ? "Off" : "On") << endl;
         cout << "0-Exit" << endl;
         cout << "--------------------------------\n";
-        int op;
-        cin >> op;
-        if (op > sz) continue;
-        if (op == sz)
-        {
-            if (autoSave) autoSave = 0;
-            else
-            {
-                cout << "Please enter file name: ";
-                cin >> autoSaveFileName;
-                strcat(autoSaveFileName, ".bmp");
-                autoSave = 1;
-                saveImage(1);
-            }
-            continue;
-        }
+        char re;
+        cin >> re;
+        int op = (re >= 'a' ? re - 87 : re - '0');
+        if (op == sz) op = 18;
         switch (op)
         {
             case 0: 
@@ -290,6 +283,18 @@ int main()
             case 17:
             {
                 undo();
+                break;
+            }
+            case 18:
+            {
+                if (autoSave) autoSave = 0;
+                else
+                {
+                    cout << "Please enter file name: ";
+                    cin >> autoSaveFileName;
+                    strcat(autoSaveFileName, ".bmp");
+                    autoSave = 1;
+                }
             }
         }
         if (op != 17) saveMod();
@@ -383,7 +388,7 @@ void grayScale()
     {
         for (int j{}; j < SIZE; j++)
         {
-            int avg;
+            int avg{};
             for (int k{}; k < RGB; k++)
                 avg += image[i][j][k];
 
@@ -400,15 +405,17 @@ void blackAndWhite()
     {
         for (int j{}; j < SIZE; j++)
         {
-            int avg, val;
+            int tmp{};
             for (int k{}; k < RGB; k++)
-                avg += image[i][j][k];
-
-            avg /= 3;
-            val = (avg >= 128 ? 255 : 0);
-
+            {
+                tmp += image[i][j][k];
+            }
+            tmp /= 3;
+            tmp = (tmp > 128 ? 255 : 0);
             for (int k{}; k < RGB; k++)
-                image[i][j][k] = val;
+            {
+                image[i][j][k] = tmp;
+            }
         }
     }
 }
@@ -709,37 +716,51 @@ void crop(int x, int y, int l, int w)
 
 void skewh(double degree)
 {   
-
     unsigned char tmp[SIZE][SIZE][RGB];
     memset(tmp, 255, sizeof tmp);
-    int leftout, sz, c{};
+    int c{}, mul{}, ctr{1};
+    int total[RGB]{};
+    double leftout, sz;
     bool neg{};
     if (!degree) return;
     if (degree < 0) degree *= -1, neg = 1;
-    leftout = tan(degree * (22 / 7) / 180.0) * 256;
-    sz = round(256.0 / (leftout));
+    leftout = tan(degree * M_PI / 180.0) * 256;
+    sz = (256.0 / leftout);
+    set<ll> st;
+    for (double j{sz}; j < SIZE; j += sz)
+    {
+        st.insert(static_cast<ll>(j));
+    }
     for (int i{}; i < SIZE; i++)
     {
         for (int j{}; j < SIZE; j++)
         {
-            if (j && j % sz == 0) continue;
-            assign(tmp[i][c], image[i][j]);
-            c++;
+            if (st.count(j)) 
+            {
+                for (int k{}; k < RGB; k++) total[k] += image[i][j][k];
+                ctr++;
+                continue;
+            }
+            for (int k{}; k < RGB; k++) total[k] += image[i][j][k];
+            for (int k{}; k < RGB; k++) tmp[i][c][k] = total[k] / ctr;
+            c++, ctr = 1;
+            memset(total, 0, sizeof total);
         }
         c = 0;
     }
-
-    int tobepushed{};
     memset(image, 255, sizeof image);
-    for (int i = (neg ? 0 : SIZE - 1); ((neg && i < SIZE) || (!neg && i >= 0));)
+    for (int i{(neg ? 0 : SIZE - 1)}; i >= 0 && i < SIZE;)
     {
-        for (int j{}; j + tobepushed < SIZE; j++)
+        for (int j{}; j + mul < SIZE; j++)
         {
-            assign(image[i][j + tobepushed], tmp[i][j]);
+            
+            for (int k{}; k < RGB; k++) image[i][j + mul][k] = tmp[i][j][k];
         }
-        if (i % sz == 0) tobepushed++;
-        if (neg) i++;
-        else i--;
+        if ((i / sz > mul && neg) || ((SIZE - i) / sz > mul && !neg))
+        {
+            mul++;
+        }
+        i += (neg ? 1 : -1);
     }
 }
 
@@ -747,34 +768,48 @@ void skewv(double degree)
 {
     unsigned char tmp[SIZE][SIZE][RGB];
     memset(tmp, 255, sizeof tmp);
-    int leftout, size, r{};
+    int r{}, mul{}, ctr{1};
+    int total[RGB]{};
+    double leftout, sz;
     bool neg{};
-    if (!degree ) return;
+    if (!degree) return;
     if (degree < 0) degree *= -1, neg = 1;
-    leftout = tan( degree * (22 / 7 ) / 180.0 ) * 256;
-    size = round( 256.0 / ( leftout ) );
+    leftout = tan(degree * M_PI / 180.0) * 256;
+    sz = (256.0 / leftout);
+    set<ll> st;
+    for (double j{sz}; j < SIZE; j += sz)
+    {
+        st.insert(static_cast<ll>(j));
+    }
     for (int j{}; j < SIZE; j++)
     {
-    for (int i{}; i < SIZE; i++)
-    {
-        if (i && i % size == 0) continue;
-        assign(tmp[r][j], image[i][j]);
-        r++;
+        for (int i{}; i < SIZE; i++)
+        {
+            if (st.count(i)) 
+            {
+                for (int k{}; k < RGB; k++) total[k] += image[i][j][k];
+                ctr++;
+                continue;
+            }
+            for (int k{}; k < RGB; k++) total[k] += image[i][j][k];
+            for (int k{}; k < RGB; k++) tmp[r][j][k] = total[k] / ctr;
+            r++, ctr = 1;
+            memset(total, 0, sizeof total);
+        }
+        r = 0;
     }
-    r = 0;
-    }
-
-    int tobepushed{};
     memset(image, 255, sizeof image);
-    for (int j = (neg ? 0 : SIZE - 1); (neg && j < SIZE) || (!neg && j >= 0);)
+    for (int j{(neg ? 0 : SIZE - 1)}; j >= 0 && j < SIZE;)
     {
-    for (int i{}; i + tobepushed < SIZE; i++)
-    {
-        assign(image[i + tobepushed][j], tmp[i][j]);
-    }
-    if (j % size == 0) tobepushed++;
-    if (neg) j++;
-    else j--;
+        for (int i{}; i + mul < SIZE; i++)
+        {
+            assign(image[i + mul][j], tmp[i][j]);
+        }
+        if ((j / sz > mul && neg) || ((SIZE - j) / sz > mul && !neg))
+        {
+            mul++;
+        }
+        j += (neg ? 1 : -1);
     }
 }
 
